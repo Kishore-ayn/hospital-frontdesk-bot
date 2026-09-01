@@ -14,7 +14,11 @@ import {
   isValidMenuChoice,
   getMenuOptionByNumber,
   returnToMainMenu,
+  handleDoctorAvailability,
+  handleReportStatus,
+  handleFreeTextQuestion,
 } from "../menu/menuFlow";
+import { notifyEscalation } from "../services/escalationService";
 
 export interface AiSensyInboundMessage {
   from: string; // Phone number
@@ -73,7 +77,7 @@ export async function handleIncomingMessage(
     const state = getConversationState(payload.from, config.clientId);
 
     // Process message and generate response
-    const response = processUserMessage(
+    const response = await processUserMessage(
       payload.message.trim(),
       state,
       config
@@ -84,7 +88,7 @@ export async function handleIncomingMessage(
     state.userData = response.userData;
     saveConversationState(state);
 
-    // If escalation, create ticket
+    // If escalation, create ticket and send notification
     if (response.escalation) {
       const { userMessage, escalationData } = response.escalation;
       const ticketId = escalationData.ticketId as string;
@@ -97,6 +101,24 @@ export async function handleIncomingMessage(
         escalationData
       );
 
+      // Send notification to external service
+      if (config.escalationChannel && config.escalationChannel.webhookUrl) {
+        notifyEscalation(
+          {
+            ticketId,
+            phoneNumber: payload.from,
+            clientId: config.clientId,
+            hospitalName: config.hospitalName,
+            reason: "Patient requested to speak with front desk",
+            timestamp: new Date().toISOString(),
+          },
+          config.escalationChannel.webhookUrl,
+          config.escalationChannel.type as "slack" | "whatsapp" | "webhook"
+        ).catch((err) =>
+          console.error("Failed to send escalation notification:", err)
+        );
+      }
+
       res.json({
         success: true,
         response: {
@@ -107,7 +129,7 @@ export async function handleIncomingMessage(
         },
       });
 
-      // Log escalation for staff notification (TODO: implement actual notification)
+      // Log escalation for staff notification
       console.log(`[ESCALATION] Ticket: ${ticketId}, User: ${payload.from}`);
       return;
     }
@@ -140,11 +162,11 @@ interface ProcessingResult {
 /**
  * Process user message and determine response
  */
-function processUserMessage(
+async function processUserMessage(
   userMessage: string,
   state: ConversationState,
   config: ClientConfig
-): ProcessingResult {
+): Promise<ProcessingResult> {
   const userData = state.userData || {};
 
   // Handle "menu" command to return to main menu
@@ -158,59 +180,82 @@ function processUserMessage(
 
   // Handle main menu
   if (state.currentStep === "main_menu") {
-    if (!isValidMenuChoice(userMessage)) {
-      return {
-        message: `❌ Invalid choice. Please enter a number between 1-5.\n\n${generateMainMenu(config)}`,
-        nextStep: "main_menu",
-        userData,
-      };
-    }
+    // First check if it's a valid menu choice
+    if (isValidMenuChoice(userMessage)) {
+      const choice = parseInt(userMessage.trim(), 10);
+      const option = getMenuOptionByNumber(choice);
 
-    const choice = parseInt(userMessage.trim(), 10);
-    const option = getMenuOptionByNumber(choice);
-
-    if (!option) {
-      return {
-        message: generateMainMenu(config),
-        nextStep: "main_menu",
-        userData,
-      };
-    }
-
-    // Route to appropriate handler
-    switch (option.key) {
-      case "visiting_hours":
+      if (!option) {
         return {
-          message: handleVisitingHours(config),
-          nextStep: "waiting_for_menu_action",
+          message: generateMainMenu(config),
+          nextStep: "main_menu",
           userData,
         };
+      }
 
-      case "doctor_availability":
-        return {
-          message: `👨‍⚕️ Doctor Availability\n\nPlease enter the doctor's name you want to check availability for:\n\n(Type 'menu' to return to main menu)`,
-          nextStep: "waiting_for_doctor_name",
-          userData,
-        };
+      // Route to appropriate handler
+      switch (option.key) {
+        case "visiting_hours":
+          return {
+            message: handleVisitingHours(config),
+            nextStep: "waiting_for_menu_action",
+            userData,
+          };
 
-      case "report_status":
-        return {
-          message: `🏥 Report Status\n\nPlease provide your:\n• Patient ID, or\n• Registered phone number\n\n(Type 'menu' to return to main menu)`,
-          nextStep: "waiting_for_patient_id",
-          userData,
-        };
+        case "doctor_availability":
+          return {
+            message: `👨‍⚕️ Doctor Availability\n\nPlease enter the doctor's name you want to check availability for:\n\n(Type 'menu' to return to main menu)`,
+            nextStep: "waiting_for_doctor_name",
+            userData,
+          };
 
-      case "billing_info":
-        return {
-          message: handleBillingInfo(config),
-          nextStep: "waiting_for_menu_action",
-          userData,
-        };
+        case "report_status":
+          return {
+            message: `🏥 Report Status\n\nPlease provide your:\n• Patient ID, or\n• Registered phone number\n\n(Type 'menu' to return to main menu)`,
+            nextStep: "waiting_for_patient_id",
+            userData,
+          };
 
-      case "talk_to_frontdesk":
+        case "billing_info":
+          return {
+            message: handleBillingInfo(config),
+            nextStep: "waiting_for_menu_action",
+            userData,
+          };
+
+        case "talk_to_frontdesk":
+          const escalation = handleEscalation(config, state.phoneNumber);
+          return {
+            message: escalation.userMessage,
+            nextStep: "escalated",
+            userData,
+            escalation: {
+              userMessage: escalation.userMessage,
+              escalationData: escalation.escalationData,
+            },
+          };
+
+        default:
+          return {
+            message: generateMainMenu(config),
+            nextStep: "main_menu",
+            userData,
+          };
+      }
+    } else {
+      // Not a valid menu choice - treat as free-text question
+      console.log(`[DEBUG] Processing free-text question: "${userMessage}" for state: ${state.currentStep}`);
+      const freeTextResponse = await handleFreeTextQuestion(
+        userMessage,
+        config
+      );
+      console.log(`[DEBUG] Free-text response: shouldEscalate=${freeTextResponse.shouldEscalate}`);
+
+      if (freeTextResponse.shouldEscalate) {
+        // Auto-escalate if Claude can't handle it
         const escalation = handleEscalation(config, state.phoneNumber);
         return {
-          message: escalation.userMessage,
+          message: freeTextResponse.message,
           nextStep: "escalated",
           userData,
           escalation: {
@@ -218,20 +263,21 @@ function processUserMessage(
             escalationData: escalation.escalationData,
           },
         };
+      }
 
-      default:
-        return {
-          message: generateMainMenu(config),
-          nextStep: "main_menu",
-          userData,
-        };
+      return {
+        message: freeTextResponse.message,
+        nextStep: "main_menu",
+        userData,
+      };
     }
   }
 
   // Handle waiting for doctor name
   if (state.currentStep === "waiting_for_doctor_name") {
+    const doctorMessage = await handleDoctorAvailability(userMessage);
     return {
-      message: `⏳ Doctor Availability Check:\n\n🔍 Searching for Dr. ${userMessage}...\n\n[Phase 2 Feature] Google Sheets integration will fetch schedule here.\n\nFor now, please:\n• Call us at the hospital reception\n• Or type 'menu' to return to main menu`,
+      message: doctorMessage,
       nextStep: "main_menu",
       userData,
     };
@@ -239,14 +285,45 @@ function processUserMessage(
 
   // Handle waiting for patient ID
   if (state.currentStep === "waiting_for_patient_id") {
+    const reportMessage = handleReportStatus(userMessage);
     return {
-      message: `⏳ Checking Report Status:\n\n🔍 Looking up status for: ${userMessage}...\n\n[Phase 2 Feature] Google Sheets integration will fetch report status here.\n\nFor now, please:\n• Visit the lab counter\n• Or speak to our front desk team (Option 5)\n• Or type 'menu' to return to main menu`,
+      message: reportMessage,
       nextStep: "main_menu",
       userData,
     };
   }
 
-  // Handle other waiting states - return to menu
+  // Handle free-text questions (fallback for any other message)
+  // This is where Claude API kicks in
+  if (state.currentStep === "main_menu" || state.currentStep === "waiting_for_menu_action") {
+    // Try to process as free-text question using Claude
+    const freeTextResponse = await handleFreeTextQuestion(
+      userMessage,
+      config
+    );
+
+    if (freeTextResponse.shouldEscalate) {
+      // Auto-escalate if Claude can't handle it
+      const escalation = handleEscalation(config, state.phoneNumber);
+      return {
+        message: freeTextResponse.message,
+        nextStep: "escalated",
+        userData,
+        escalation: {
+          userMessage: escalation.userMessage,
+          escalationData: escalation.escalationData,
+        },
+      };
+    }
+
+    return {
+      message: freeTextResponse.message,
+      nextStep: "main_menu",
+      userData,
+    };
+  }
+
+  // Default: return to menu
   return {
     message: returnToMainMenu(config),
     nextStep: "main_menu",

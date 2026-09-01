@@ -2,6 +2,8 @@ import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import { initializeDatabase } from "./db/stateManager";
 import { handleIncomingMessage } from "./webhooks/messageHandler";
+import { initializeGoogleSheets } from "./services/googleSheetsService";
+import { startEscalationProcessor } from "./services/escalationService";
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +20,7 @@ app.get("/health", (req: Request, res: Response) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    version: "0.1.0",
+    version: "0.2.0",
   });
 });
 
@@ -29,8 +31,9 @@ app.post("/webhook/whatsapp", handleIncomingMessage);
 app.get("/", (req: Request, res: Response) => {
   res.json({
     name: "Hospital WhatsApp Bot",
-    version: "0.1.0",
+    version: "0.2.0",
     status: "running",
+    phase: "Phase 2 - Google Sheets + Claude + Escalation Notifications",
     endpoints: {
       health: "GET /health",
       webhook: "POST /webhook/whatsapp",
@@ -62,7 +65,7 @@ async function startServer() {
     await initializeDatabase(dbPath);
     console.log("✅ Database initialized");
 
-    // Validate client configs
+    // Validate and load client configs
     console.log("Loading client configurations...");
     const { getAllClientConfigs } = require("./config/configLoader");
     const configs = getAllClientConfigs();
@@ -70,17 +73,39 @@ async function startServer() {
 
     configs.forEach((config: any) => {
       console.log(`   - ${config.clientId}: ${config.hospitalName}`);
+
+      // Initialize Google Sheets for this client
+      try {
+        initializeGoogleSheets(config.googleSheets);
+      } catch (error) {
+        console.warn(
+          `⚠️  Failed to initialize Google Sheets for ${config.clientId}:`,
+          error
+        );
+      }
     });
+
+    // Start escalation notification processor
+    if (configs.length > 0 && configs[0].escalationChannel) {
+      const webhookUrl = configs[0].escalationChannel.webhookUrl;
+      if (webhookUrl) {
+        console.log("Starting escalation notification processor...");
+        startEscalationProcessor(webhookUrl);
+        console.log("✅ Escalation processor started");
+      }
+    }
 
     // Start Express server
     app.listen(port, () => {
       console.log(`\n🚀 Server is running on port ${port}`);
-      console.log(
-        `📨 Webhook endpoint: POST http://localhost:${port}/webhook/whatsapp`
-      );
+      console.log(`📨 Webhook endpoint: POST http://localhost:${port}/webhook/whatsapp`);
       console.log(`💚 Health check: GET http://localhost:${port}/health`);
+      console.log(`\n📚 Phase 2 Features:`);
+      console.log(`   ✅ Google Sheets integration (doctor availability, report status)`);
+      console.log(`   ✅ Claude API fallback for free-text questions`);
+      console.log(`   ✅ Escalation notifications via webhook`);
       console.log(
-        `\n📚 API Documentation:\n   - All hospital-specific data is loaded from /clients/*.json`
+        `\n📝 API Documentation:\n   - All hospital-specific data is loaded from /clients/*.json`
       );
     });
 

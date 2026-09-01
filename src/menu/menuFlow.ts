@@ -1,4 +1,14 @@
 import { ClientConfig } from "../config/configLoader";
+import {
+  searchDoctor,
+  getPatientReports,
+  formatDoctorAvailability,
+  formatReportStatus,
+} from "../services/googleSheetsService";
+import {
+  processUserQuestion,
+  formatClaudeResponse,
+} from "../services/claudeService";
 
 export interface MenuOption {
   number: number;
@@ -101,6 +111,58 @@ export function handleEscalation(config: ClientConfig, userPhone: string): {
       ticketId: generateTicketId(),
       type: "manual_escalation",
     },
+  };
+}
+
+/**
+ * Handle doctor availability lookup
+ */
+export async function handleDoctorAvailability(
+  doctorName: string
+): Promise<string> {
+  const doctor = searchDoctor(doctorName);
+
+  if (!doctor) {
+    return `❌ Doctor "${doctorName}" not found in our system.
+
+Please provide the correct doctor name or check:
+1. Visit our hospital website for the full doctor list
+2. Call our reception desk
+3. Or try option 5 to speak with front desk
+
+📌 Reply 'menu' to return to main menu.`;
+  }
+
+  return formatDoctorAvailability(doctor);
+}
+
+/**
+ * Handle report status lookup
+ */
+export function handleReportStatus(patientId: string): string {
+  const reports = getPatientReports(patientId);
+  return formatReportStatus(reports);
+}
+
+/**
+ * Handle free-text questions (phase 2 feature)
+ */
+export async function handleFreeTextQuestion(
+  userMessage: string,
+  config: ClientConfig
+): Promise<{
+  message: string;
+  shouldEscalate: boolean;
+}> {
+  // Use Claude API to answer from FAQ
+  const response = await processUserQuestion(
+    userMessage,
+    config.faqContent
+  );
+
+  return {
+    message: formatClaudeResponse(response.message, response.shouldEscalate),
+    shouldEscalate: response.shouldEscalate,
   };
 }
 
