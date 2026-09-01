@@ -59,7 +59,7 @@ async function startServer() {
   try {
     // Initialize database
     console.log("Initializing database...");
-    initializeDatabase(dbPath);
+    await initializeDatabase(dbPath);
     console.log("✅ Database initialized");
 
     // Validate client configs
@@ -85,10 +85,10 @@ async function startServer() {
     });
 
     // Graceful shutdown
-    process.on("SIGINT", () => {
+    process.on("SIGINT", async () => {
       console.log("\n🛑 Shutting down...");
       const { closeDatabase } = require("./db/stateManager");
-      closeDatabase();
+      await closeDatabase();
       process.exit(0);
     });
   } catch (error) {
