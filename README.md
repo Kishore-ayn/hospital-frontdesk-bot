@@ -4,21 +4,23 @@ A multi-client WhatsApp-based front-desk assistant for hospitals. One codebase, 
 
 ## Status
 
-**Phase 1 (Current):** ✅ Complete
+**Phase 1 (✅ Complete)**
 - ✅ Express webhook setup
 - ✅ Client config loader (multi-client support)
 - ✅ Static menu flow (visiting hours, billing, escalation)
 - ✅ Conversation state management (SQLite)
 
-**Phase 2 (Coming):**
-- Google Sheets integration (doctor availability, report status)
-- Claude API fallback for free-text questions
-- Escalation notification system
+**Phase 2 (✅ COMPLETE - NEW)**
+- ✅ Google Sheets integration (doctor availability, report status)
+- ✅ Claude API fallback for free-text questions
+- ✅ Escalation notification system (webhook, Slack, WhatsApp)
+- ✅ Mock implementations for development
 
-**Phase 3 (Coming):**
+**Phase 3 (Planned):**
 - Admin dashboard
 - Analytics and reporting
 - Advanced escalation workflows
+- Real-time appointment scheduling
 
 ---
 
@@ -45,6 +47,96 @@ npm run dev
 ```
 
 The server will start on `http://localhost:5000`
+
+### 4. Build for Production
+
+```bash
+npm run build
+npm start
+```
+
+---
+
+## Phase 2 Setup (Optional - Uses Mock Data by Default)
+
+Phase 2 features work with mock data out of the box. To integrate real data:
+
+### For Real Google Sheets Integration
+
+1. **Create a Google Service Account**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Create a new project
+   - Enable "Google Sheets API"
+   - Create a service account and download JSON key file
+
+2. **Add to Project**
+   - Save JSON key to `credentials/google-sheets-key.json`
+   - Set in `.env`: `GOOGLE_SHEETS_KEY_FILE=./credentials/google-sheets-key.json`
+
+3. **Create Google Sheets**
+   - Doctor Schedule sheet with columns: Doctor Name, Specialty, OPD Days, OPD Timing
+   - Report Status sheet with columns: Patient ID, Report Name, Status, Ready Date
+   - Share sheet with service account email
+
+4. **Update Client Config**
+   - Set `googleSheets.spreadsheetId` in client config
+   - Set `googleSheets.doctorScheduleSheet` name
+   - Set `googleSheets.reportStatusSheet` name
+
+### For Real Claude API Integration
+
+1. **Get API Key**
+   - Sign up at [Anthropic Console](https://console.anthropic.com)
+   - Create an API key
+
+2. **Add to Environment**
+   - Set in `.env`: `CLAUDE_API_KEY=sk-ant-...`
+
+3. **Optional: Customize FAQ**
+   - Edit `faqContent` in client config
+   - Claude will use this to ground responses
+
+### For Real Escalation Notifications
+
+1. **Set Webhook URL**
+   - Update `escalationChannel.webhookUrl` in client config
+   - Can be:
+     - Slack webhook (for Slack channel)
+     - WhatsApp group webhook
+     - Custom service endpoint
+
+2. **Select Notification Type**
+   - Set `escalationChannel.type` to: `webhook`, `slack`, or `whatsapp`
+
+---
+
+## Testing Phase 2 Features
+
+```bash
+# Start development server
+npm run dev
+
+# In another terminal, test with curl:
+
+# Test doctor availability
+curl -X POST http://localhost:5000/webhook/whatsapp \
+  -H "Content-Type: application/json" \
+  -d '{"from":"+919000000001","message":"2","projectId":"demo_project_123"}'
+
+# Test report status
+curl -X POST http://localhost:5000/webhook/whatsapp \
+  -H "Content-Type: application/json" \
+  -d '{"from":"+919000000001","message":"3","projectId":"demo_project_123"}'
+
+# Test free-text question
+curl -X POST http://localhost:5000/webhook/whatsapp \
+  -H "Content-Type: application/json" \
+  -d '{"from":"+919000000001","message":"Do you have parking?","projectId":"demo_project_123"}'
+```
+
+See [PHASE_2_TEST_RESULTS.md](PHASE_2_TEST_RESULTS.md) for detailed test results and expected responses.
+
+---
 
 ### 4. Build for Production
 
@@ -116,12 +208,58 @@ Conversation state is stored in SQLite:
 ### 5. Response Generation
 
 Based on current state and user input:
-- **Menu choice** → Route to appropriate handler
-- **Visiting hours** → Return static data from config
-- **Doctor availability** → [Phase 2: Google Sheets lookup]
-- **Report status** → [Phase 2: Google Sheets lookup]
-- **Billing info** → Return static FAQ from config
-- **Escalate** → Create ticket, notify staff, escalate to human
+- **Menu choice 1** → Visiting hours (static data from config)
+- **Menu choice 2** → Doctor availability (Google Sheets lookup - Phase 2)
+- **Menu choice 3** → Report status (Google Sheets lookup - Phase 2)
+- **Menu choice 4** → Billing info (FAQ from config)
+- **Menu choice 5** → Escalate to front desk (creates ticket)
+- **Free text** → Claude API for question answering (Phase 2)
+
+### Phase 2 Features
+
+#### Doctor Availability (Option 2)
+Patients can search for doctors by name and get:
+- Doctor's specialty
+- OPD timings
+- Available days
+- Next available slot
+
+**Data Source**: Google Sheets (mock data during development)  
+**Fallback**: Shows list of doctors if name not found
+
+#### Report Status (Option 3)
+Patients can check their lab/medical reports by:
+- Patient ID
+- Registered phone number
+
+**Response Includes**:
+- Report name
+- Status (🟢 Ready / 🟡 Pending / 🔴 Not Started)
+- Ready date
+- Collection/pickup location
+
+**Data Source**: Google Sheets (mock data during development)
+
+#### Free-Text Question Answering (Automatic)
+When patient sends text that doesn't match menu options:
+- Claude API (with real API key) or mock responses
+- Answers constrained to FAQ content only
+- Auto-escalates if uncertain or for medical advice
+
+**Activation**: Type any natural language question at main menu  
+**Example**: "Do you have parking?" → Answered from FAQ  
+**Example**: "What should I do for chest pain?" → Escalated to human
+
+#### Escalation Notifications
+When a patient escalates or when Claude can't help:
+- Creates unique ticket ID
+- Sends notification to hospital staff
+- Supports multiple channels:
+  - **Webhook** (generic HTTP POST)
+  - **Slack** (rich message format)
+  - **WhatsApp** (group message format)
+
+**Notification includes**: Ticket ID, patient phone, timestamp, reason
 
 ---
 
