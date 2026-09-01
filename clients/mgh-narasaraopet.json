@@ -1,0 +1,39 @@
+{
+  "clientId": "mgh-narasaraopet",
+  "hospitalName": "MGH Narasaraopet",
+  "whatsappNumber": "+919876543210",
+  "aisensy": {
+    "projectId": "demo_project_123",
+    "apiKey": "demo_api_key_123"
+  },
+  "googleSheets": {
+    "spreadsheetId": "demo_sheet_id_123",
+    "doctorScheduleSheet": "Doctor Schedule",
+    "reportStatusSheet": "Report Status"
+  },
+  "visitingHours": {
+    "general": {
+      "startTime": "09:00",
+      "endTime": "17:00",
+      "daysOpen": "Monday to Saturday"
+    },
+    "icu": {
+      "startTime": "10:00",
+      "endTime": "16:00",
+      "daysOpen": "Daily, 1 visitor per patient"
+    },
+    "pediatrics": {
+      "startTime": "09:00",
+      "endTime": "17:00",
+      "daysOpen": "Monday to Saturday",
+      "specialNotes": "Parent/guardian must accompany"
+    }
+  },
+  "faqContent": "Frequently Asked Questions:\n\n1. What are the visiting hours?\nVisiting hours are 9 AM to 5 PM on weekdays and 9 AM to 1 PM on Saturdays.\n\n2. How do I check my lab report?\nYou can check your lab report status through this chat. Please provide your patient ID or registered phone number.\n\n3. What documents do I need to bring for admission?\nPlease bring ID proof, insurance card (if applicable), and previous medical records.\n\n4. Is there parking available?\nYes, complimentary parking is available for all patients and visitors.",
+  "billingSupportMessage": "For billing inquiries:\n- Call our billing department: +918XXX-XXXX\n- Hours: 9 AM - 5 PM, Monday to Friday\n- Or speak to a representative in the lobby",
+  "escalationChannel": {
+    "type": "whatsapp_group",
+    "groupId": "demo_group_123",
+    "webhookUrl": "https://example.com/webhook/escalation"
+  }
+}
