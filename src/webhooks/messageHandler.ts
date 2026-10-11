@@ -625,7 +625,7 @@ async function processUserMessage(
         nextStep: "main_menu",
         userData,
       };
-    } else if (choice === "7") {
+    } else if (choice === "8") {
       // User chose to return to main menu
       return {
         message: returnToMainMenu(config),
