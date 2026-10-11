@@ -105,7 +105,37 @@ function handleMockClaude(
   userQuestion: string,
   faqContent: string
 ): ClaudeResponse {
-  const question = userQuestion.toLowerCase();
+  const question = userQuestion.toLowerCase().trim();
+
+  // Handle greetings and simple interactions
+  const greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "namaste"];
+  if (greetings.some(greeting => question === greeting || question.startsWith(greeting + " "))) {
+    return {
+      content: "Hello! How can I help you?",
+      confident: true,
+      escalate: false,
+    };
+  }
+
+  // Handle thanks and similar
+  const thanks = ["thank", "thanks", "thank you"];
+  if (thanks.some(thank => question === thank || question.startsWith(thank + " "))) {
+    return {
+      content: "You're welcome!",
+      confident: true,
+      escalate: false,
+    };
+  }
+
+  // Handle bye/goodbye
+  const goodbyes = ["bye", "goodbye", "see you"];
+  if (goodbyes.some(gb => question === gb || question.startsWith(gb + " "))) {
+    return {
+      content: "Goodbye! Have a great day.",
+      confident: true,
+      escalate: false,
+    };
+  }
 
   // Check if question is about something in FAQ
   const faqLower = faqContent.toLowerCase();
@@ -223,9 +253,9 @@ export function formatClaudeResponse(
   let formatted = `💭 ${message}`;
 
   if (shouldEscalate) {
-    formatted += "\n\n📞 Would you like to talk to our front desk team? Reply '5'";
+    formatted += "\n\n📞 Options: Reply '5' to talk to front desk or '7' to return to main menu";
   } else {
-    formatted += "\n\n📌 Reply 'menu' to return to main menu.";
+    formatted += "\n\n📌 Reply 'menu' or '7' to return to main menu.";
   }
 
   return formatted;

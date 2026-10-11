@@ -35,6 +35,38 @@ export interface ClientConfig {
 const configCache: Map<string, ClientConfig> = new Map();
 
 /**
+ * Normalize WhatsApp number for comparison
+ * Removes +, spaces, dashes, and other non-digit characters except leading +
+ * Examples:
+ *   "+91 98765 43210" -> "+919876543210"
+ *   "919876543210" -> "+919876543210" (adds + if missing and starts with country code)
+ *   "+919876543210" -> "+919876543210" (unchanged)
+ */
+function normalizeWhatsAppNumber(number: string): string {
+  if (!number) return "";
+
+  // Remove all non-digit characters
+  const digitsOnly = number.replace(/\D/g, '');
+
+  // If number starts with country code (assuming 1-3 digits) and no +, add +
+  // This is a simple heuristic - in practice, WhatsApp numbers should have country code
+  if (digitsOnly.length >= 10 && !number.startsWith('+')) {
+    // Assuming country code is first 1-3 digits, rest is subscriber number
+    // For India (+91), this would be: first 2 digits + remaining digits
+    // But we'll just add + to the front for simplicity
+    return '+' + digitsOnly;
+  }
+
+  // If already has +, return as-is (after cleaning)
+  if (number.startsWith('+')) {
+    return '+' + digitsOnly;
+  }
+
+  // Fallback: return digits only
+  return digitsOnly;
+}
+
+/**
  * Load client config by client ID
  * Identifier can be: client ID, WhatsApp number, or AiSensy project ID
  */
@@ -53,15 +85,18 @@ export function loadClientConfig(identifier: string): ClientConfig {
     const content = fs.readFileSync(configPath, "utf-8");
     const config: ClientConfig = JSON.parse(content);
 
-    // Cache by multiple identifiers
+    // Cache by multiple identifiers (including normalized WhatsApp number)
     configCache.set(config.clientId, config);
     configCache.set(config.whatsappNumber, config);
+    configCache.set(normalizeWhatsAppNumber(config.whatsappNumber), config);
     configCache.set(config.aisensy.projectId, config);
 
     // Return if this is the one we're looking for
+    // Try exact match and normalized match for WhatsApp number
     if (
       config.clientId === identifier ||
       config.whatsappNumber === identifier ||
+      normalizeWhatsAppNumber(config.whatsappNumber) === identifier ||
       config.aisensy.projectId === identifier
     ) {
       return config;

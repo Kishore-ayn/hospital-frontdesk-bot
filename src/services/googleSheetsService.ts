@@ -1,8 +1,7 @@
-/**
- * Google Sheets Service
- * Handles doctor availability and report status lookups
- * Currently uses mock data; can be swapped for real Google Sheets API
- */
+import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { JWT } from 'google-auth-library';
 
 export interface Doctor {
   name: string;
@@ -28,106 +27,244 @@ export interface GoogleSheetsConfig {
 }
 
 /**
- * Mock doctor data (would come from Google Sheets in production)
+ * Load service account credentials from JSON file
  */
-const MOCK_DOCTORS: Record<string, Doctor> = {
-  "dr-rajesh": {
-    name: "Dr. Rajesh Kumar",
-    specialty: "General Physician",
-    opdDays: ["Monday", "Wednesday", "Friday"],
-    opdTiming: "10:00 AM - 1:00 PM",
-    nextAvailable: "Today 10:00 AM",
-  },
-  "dr-priya": {
-    name: "Dr. Priya Sharma",
-    specialty: "Pediatrician",
-    opdDays: ["Monday", "Tuesday", "Thursday", "Friday"],
-    opdTiming: "2:00 PM - 5:00 PM",
-    nextAvailable: "Today 2:00 PM",
-  },
-  "dr-vikram": {
-    name: "Dr. Vikram Singh",
-    specialty: "Orthopedic Surgeon",
-    opdDays: ["Tuesday", "Thursday", "Saturday"],
-    opdTiming: "11:00 AM - 2:00 PM",
-    nextAvailable: "Tomorrow 11:00 AM",
-  },
-  "dr-anita": {
-    name: "Dr. Anita Gupta",
-    specialty: "Cardiologist",
-    opdDays: ["Monday", "Wednesday"],
-    opdTiming: "9:00 AM - 12:00 PM",
-    nextAvailable: "Monday 9:00 AM",
-  },
-};
-
-/**
- * Mock report data (would come from Google Sheets in production)
- */
-const MOCK_REPORTS: Record<string, ReportStatus[]> = {
-  "PAT001": [
-    {
-      patientId: "PAT001",
-      reportType: "Blood Test",
-      status: "ready",
-      collectionDate: "2026-08-30",
-      readyDate: "2026-09-01",
-      location: "Lab Counter, Ground Floor",
-    },
-    {
-      patientId: "PAT001",
-      reportType: "X-Ray Chest",
-      status: "pending",
-      collectionDate: "2026-08-31",
-    },
-  ],
-  "PAT002": [
-    {
-      patientId: "PAT002",
-      reportType: "ECG",
-      status: "collected",
-      collectionDate: "2026-09-01",
-      location: "Cardiology Department",
-    },
-  ],
-};
-
-/**
- * Get doctor by name (case-insensitive partial match)
- */
-export function searchDoctor(doctorName: string): Doctor | null {
-  const searchTerm = doctorName.toLowerCase().trim();
-
-  for (const [key, doctor] of Object.entries(MOCK_DOCTORS)) {
-    if (
-      doctor.name.toLowerCase().includes(searchTerm) ||
-      key.includes(searchTerm.replace(/\s+/g, "-"))
-    ) {
-      return doctor;
+async function loadCredentials(): Promise<any> {
+  const keyFilePath = path.resolve(process.env.GOOGLE_SHEETS_KEY_FILE || './credentials/google-service-account.json');
+  try {
+    const data = await fs.readFile(keyFilePath, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    if (err instanceof Error) {
+      throw new Error(`Failed to load Google Sheets credentials from ${keyFilePath}: ${err.message}`);
+    } else {
+      throw new Error(`Failed to load Google Sheets credentials from ${keyFilePath}: ${String(err)}`);
     }
   }
-
-  return null;
 }
 
 /**
- * Get all doctors
+ * Initialize Google Sheets connection
+ * Authenticates with Google Sheets API using service account
  */
-export function getAllDoctors(): Doctor[] {
-  return Object.values(MOCK_DOCTORS);
+export async function initializeGoogleSheets(
+  config: GoogleSheetsConfig
+): Promise<void> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    // Initialize Google Spreadsheet with auth client
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+
+    // Load sheet properties to verify access
+    await doc.loadInfo();
+
+    console.log(
+      `✅ Google Sheets service initialized successfully\n` +
+      `   Spreadsheet ID: ${config.spreadsheetId}\n` +
+      `   Title: ${doc.title}\n` +
+      `   Doctor Sheet: ${config.doctorScheduleSheet}\n` +
+      `   Reports Sheet: ${config.reportStatusSheet}`
+    );
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('❌ Failed to initialize Google Sheets service:', err);
+    } else {
+      console.error('❌ Failed to initialize Google Sheets service:', String(err));
+    }
+    throw err;
+  }
 }
 
 /**
- * Get reports for patient (by patient ID or phone number)
+ * Get doctor by name (case-insensitive partial match) from Google Sheets
  */
-export function getPatientReports(patientId: string): ReportStatus[] {
-  // In production, this would query Google Sheets
-  // For now, return mock data or empty array
-  return MOCK_REPORTS[patientId] || [];
+export async function searchDoctor(doctorName: string, config: GoogleSheetsConfig): Promise<Doctor | null> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.doctorScheduleSheet || 'Doctor Schedule'));
+    if (!sheet) throw new Error('Doctor schedule sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+/*
+    const searchTerm = doctorName.toLowerCase().trim();
+    for (const row of rows) {
+      // Access cell values using the get method
+      const name = (row.get('name') ?? '').toLowerCase();
+      const id = (row.get('doctor_id') ?? '').toLowerCase();
+      if (name.includes(searchTerm) || id.includes(searchTerm.replace(/\s+/g, '-'))) {
+        return {
+          name: row.get('name') ?? '',
+          specialty: row.get('specialty') ?? '',
+          opdDays: ((row.get('opd_days') ?? '').split(',').map((d: string) => d.trim()).filter(Boolean)),
+          opdTiming: row.get('opd_timing') ?? '',
+          nextAvailable: row.get('next_available') ?? ''
+        };
+      }
+    }
+*/
+      const searchTerm = doctorName.toLowerCase().trim();
+
+      console.log("\n🔍 DOCTOR SEARCH DEBUG");
+      console.log("Search input:", JSON.stringify(doctorName));
+      console.log("Normalized search:", JSON.stringify(searchTerm));
+      console.log("Rows found:", rows.length);
+
+      for (const row of rows) {
+        const name = String(row.get("name") ?? "").trim();
+        const id = String(row.get("doctor_id") ?? "").trim();
+
+        console.log("Checking doctor:");
+        console.log("  name:", JSON.stringify(name));
+        console.log("  id:", JSON.stringify(id));
+        console.log(
+          "  name match:",
+          name.toLowerCase().includes(searchTerm)
+        );
+        console.log(
+          "  id match:",
+          id.toLowerCase().includes(searchTerm.replace(/\s+/g, "-"))
+        );
+
+        if (
+          name.toLowerCase().includes(searchTerm) ||
+          id.toLowerCase().includes(searchTerm.replace(/\s+/g, "-"))
+        ) {
+          console.log("✅ DOCTOR MATCH FOUND:", name);
+
+          return {
+            name,
+            specialty: String(row.get("specialty") ?? ""),
+            opdDays: String(row.get("opd_days") ?? "")
+              .split(",")
+              .map((d: string) => d.trim())
+              .filter(Boolean),
+            opdTiming: String(row.get("opd_timing") ?? ""),
+            nextAvailable: String(row.get("next_available") ?? ""),
+          };
+        }
+      }
+
+      console.log("❌ NO DOCTOR MATCH FOUND");
+        
+    return null;
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error searching doctor:', err);
+    } else {
+      console.error('Error searching doctor:', String(err));
+    }
+    return null;
+  }
 }
 
 /**
- * Format doctor availability for WhatsApp message
+ * Get all doctors from Google Sheets
+ */
+export async function getAllDoctors(config: GoogleSheetsConfig): Promise<Doctor[]> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.doctorScheduleSheet || 'Doctor Schedule'));
+    if (!sheet) throw new Error('Doctor schedule sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+
+    return rows.map(row => ({
+      name: row.get('name') ?? '',
+      specialty: row.get('specialty') ?? '',
+      opdDays: ((row.get('opd_days') ?? '').split(',').map((d: string) => d.trim()).filter(Boolean)),
+      opdTiming: row.get('opd_timing') ?? '',
+      nextAvailable: row.get('next_available') ?? ''
+    }));
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error getting all doctors:', err);
+    } else {
+      console.error('Error getting all doctors:', String(err));
+    }
+    return [];
+  }
+}
+
+/**
+ * Get reports for patient (by patient ID) from Google Sheets
+ */
+export async function getPatientReports(patientId: string, config: GoogleSheetsConfig): Promise<ReportStatus[]> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.reportStatusSheet || 'Report Status'));
+    if (!sheet) throw new Error('Report status sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+
+    return rows
+      .filter(row => (row.get('patient_id') ?? '').toLowerCase() === patientId.toLowerCase())
+      .map(row => ({
+        patientId: row.get('patient_id') ?? '',
+        reportType: row.get('report_type') ?? '',
+        status: (row.get('status') ?? 'pending') as 'pending' | 'ready' | 'collected',
+        collectionDate: row.get('collection_date') ?? undefined,
+        readyDate: row.get('ready_date') ?? undefined,
+        location: row.get('location') ?? undefined
+      }));
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error getting patient reports:', err);
+    } else {
+      console.error('Error getting patient reports:', String(err));
+    }
+    return [];
+  }
+}
+
+/**
+ * Format doctor availability for WhatsApp message (unchanged from mock version)
  */
 export function formatDoctorAvailability(doctor: Doctor): string {
   return `👨‍⚕️ ${doctor.name}
@@ -138,11 +275,11 @@ Specialty: ${doctor.specialty}
 
 ⏰ Next Available: ${doctor.nextAvailable}
 
-📌 Reply 'menu' to return to main menu or option 5 to schedule an appointment.`;
+📌 Reply 'menu' or '7' to return to main menu or option 5 to schedule an appointment.`;
 }
 
 /**
- * Format report status for WhatsApp message
+ * Format report status for WhatsApp message (unchanged from mock version)
  */
 export function formatReportStatus(reports: ReportStatus[]): string {
   if (reports.length === 0) {
@@ -150,7 +287,7 @@ export function formatReportStatus(reports: ReportStatus[]): string {
 
 Please verify the patient ID or call our lab at the hospital reception.
 
-📌 Reply 'menu' to return to main menu.`;
+📌 Reply 'menu' or '7' to return to main menu.`;
   }
 
   let message = "📋 Your Report Status:\n\n";
@@ -169,7 +306,7 @@ Please verify the patient ID or call our lab at the hospital reception.
     message += "\n";
   });
 
-  message += "📌 Reply 'menu' to return to main menu.";
+  message += "📌 Reply 'menu' or '7' to return to main menu.";
   return message;
 }
 
@@ -180,25 +317,4 @@ function getStatusEmoji(status: string): string {
     collected: "📦",
   };
   return emojis[status] || "❓";
-}
-
-/**
- * Initialize Google Sheets connection
- * In production, this would authenticate with Google Sheets API
- */
-export async function initializeGoogleSheets(
-  config: GoogleSheetsConfig
-): Promise<void> {
-  // TODO: Implement real Google Sheets API connection
-  // For now, just validate config structure
-  if (!config.spreadsheetId || !config.doctorScheduleSheet) {
-    throw new Error("Invalid Google Sheets configuration");
-  }
-
-  console.log(
-    "✅ Google Sheets service initialized (using mock data for now)"
-  );
-  console.log(`   Spreadsheet ID: ${config.spreadsheetId}`);
-  console.log(`   Doctor Sheet: ${config.doctorScheduleSheet}`);
-  console.log(`   Reports Sheet: ${config.reportStatusSheet}`);
 }

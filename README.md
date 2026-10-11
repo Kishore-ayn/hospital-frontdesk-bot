@@ -136,6 +136,14 @@ curl -X POST http://localhost:5000/webhook/whatsapp \
 
 See [PHASE_2_TEST_RESULTS.md](PHASE_2_TEST_RESULTS.md) for detailed test results and expected responses.
 
+### Test the new menu option
+You can test the new "Return to Main Menu" option (option 6) with:
+```bash
+curl -X POST http://localhost:5000/webhook/whatsapp \
+  -H "Content-Type: application/json" \
+  -d '{"from":"+919000000001","message":"6","projectId":"demo_project_123"}'
+```
+
 ---
 
 ### 4. Build for Production
@@ -213,6 +221,7 @@ Based on current state and user input:
 - **Menu choice 3** → Report status (Google Sheets lookup - Phase 2)
 - **Menu choice 4** → Billing info (FAQ from config)
 - **Menu choice 5** → Escalate to front desk (creates ticket)
+- **Menu choice 6** → Return to main menu
 - **Free text** → Claude API for question answering (Phase 2)
 
 ### Phase 2 Features

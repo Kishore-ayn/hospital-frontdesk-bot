@@ -54,6 +54,18 @@ const MAIN_MENU_OPTIONS: MenuOption[] = [
     label: "Talk to Front Desk",
     description: "Escalate to a human representative",
   },
+  {
+    number: 6,
+    key: "total_departments",
+    label: "Total Available Departments",
+    description: "Get count of all available departments/wards",
+  },
+  {
+    number: 7,
+    key: "return_to_menu",
+    label: "Return to Main Menu",
+    description: "Go back to the main menu options",
+  },
 ];
 
 /**
@@ -64,7 +76,7 @@ export function generateMainMenu(config: ClientConfig): string {
     (opt) => `${opt.number}. ${opt.label}`
   ).join("\n");
 
-  return `🏥 Welcome to ${config.hospitalName}!\n\nHow can we assist you today?\n\n${menuText}\n\nPlease reply with the number of your choice (1-5).`;
+  return `🏥 Welcome to ${config.hospitalName}!\n\nHow can we assist you today?\n\n${menuText}\n\nPlease reply with the number of your choice (1-${MAIN_MENU_OPTIONS.length}).`;
 }
 
 /**
@@ -84,7 +96,7 @@ export function handleVisitingHours(config: ClientConfig): string {
     response += "\n";
   }
 
-  response += "📌 Need more info? Reply 'menu' to return to main menu.";
+  response += "📌 Need more info? Reply 'menu' or '7' to return to main menu.";
   return response;
 }
 
@@ -92,7 +104,7 @@ export function handleVisitingHours(config: ClientConfig): string {
  * Handle bill/payment info menu option
  */
 export function handleBillingInfo(config: ClientConfig): string {
-  return `💰 Bill & Payment Info\n\n${config.billingSupportMessage}\n\n📌 Need more help? Reply 'menu' to return to main menu or option 5 to talk to our team.`;
+  return `💰 Bill & Payment Info\n\n${config.billingSupportMessage}\n\n📌 Need more help? Reply 'menu' or '7' to return to main menu or option 5 to talk to our team.`;
 }
 
 /**
@@ -103,7 +115,7 @@ export function handleEscalation(config: ClientConfig, userPhone: string): {
   escalationData: Record<string, unknown>;
 } {
   return {
-    userMessage: `Thank you for reaching out! Our front desk team will respond shortly. Please stand by.\n\nYour ticket ID: ${generateTicketId()}`,
+    userMessage: `Thank you for reaching out! Our front desk team will respond shortly. Please stand by.\n\nYour ticket ID: ${generateTicketId()}\n\n📌 Reply 'menu' or '7' to return to main menu.`,
     escalationData: {
       clientId: config.clientId,
       userPhone,
@@ -118,9 +130,10 @@ export function handleEscalation(config: ClientConfig, userPhone: string): {
  * Handle doctor availability lookup
  */
 export async function handleDoctorAvailability(
-  doctorName: string
+  doctorName: string,
+  config: ClientConfig
 ): Promise<string> {
-  const doctor = searchDoctor(doctorName);
+  const doctor = await searchDoctor(doctorName, config.googleSheets);
 
   if (!doctor) {
     return `❌ Doctor "${doctorName}" not found in our system.
@@ -130,7 +143,7 @@ Please provide the correct doctor name or check:
 2. Call our reception desk
 3. Or try option 5 to speak with front desk
 
-📌 Reply 'menu' to return to main menu.`;
+📌 Reply 'menu' or '7' to return to main menu.`;
   }
 
   return formatDoctorAvailability(doctor);
@@ -139,8 +152,11 @@ Please provide the correct doctor name or check:
 /**
  * Handle report status lookup
  */
-export function handleReportStatus(patientId: string): string {
-  const reports = getPatientReports(patientId);
+export async function handleReportStatus(
+  patientId: string,
+  config: ClientConfig
+): Promise<string> {
+  const reports = await getPatientReports(patientId, config.googleSheets);
   return formatReportStatus(reports);
 }
 
@@ -165,6 +181,15 @@ export async function handleFreeTextQuestion(
     shouldEscalate: response.shouldEscalate,
   };
 }
+
+/**
+ * Handle total departments menu option
+ */
+export function handleTotalDepartments(config: ClientConfig): string {
+  const wards = Object.keys(config.visitingHours);
+  return `🏥 Total Available Departments: ${wards.length}\n\nDepartments: ${wards.map(w => w.toUpperCase()).join(', ')}\n\n📌 Reply 'menu' or '7' to return to main menu.`;
+}
+
 
 /**
  * Generate a unique ticket ID for escalations

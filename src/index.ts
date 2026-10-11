@@ -1,19 +1,21 @@
-import express, { Express, Request, Response } from "express";
+
 import dotenv from "dotenv";
+dotenv.config();
+import express, { Express, Request, Response } from "express";
 import { initializeDatabase } from "./db/stateManager";
 import { handleIncomingMessage } from "./webhooks/messageHandler";
 import { initializeGoogleSheets } from "./services/googleSheetsService";
 import { startEscalationProcessor } from "./services/escalationService";
 
 // Load environment variables
-dotenv.config();
+
 
 const app: Express = express();
 const port = process.env.PORT || 5000;
 const dbPath = process.env.DB_PATH;
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
