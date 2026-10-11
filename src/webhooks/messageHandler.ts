@@ -19,6 +19,7 @@ import {
   handleReportStatus,
   handleFreeTextQuestion,
   handleTotalDepartments,
+  handleTotalDoctors,
 } from "../menu/menuFlow";
 import { notifyEscalation } from "../services/escalationService";
 import { sendOpenWaText } from "../services/openwaService";
@@ -358,14 +359,14 @@ async function processUserMessage(
 
         case "doctor_availability":
           return {
-            message: `👨‍⚕️ Doctor Availability\n\nPlease enter the doctor's name you want to check availability for:\n\n(Type 'menu' or '7' to return to main menu)`,
+            message: `👨‍⚕️ Doctor Availability\n\nPlease enter the doctor's name you want to check availability for:\n\n(Type 'menu' or '8' to return to main menu)`,
             nextStep: "waiting_for_doctor_name",
             userData,
           };
 
         case "report_status":
           return {
-            message: `🏥 Report Status\n\nPlease provide your Patient ID:\n\n(Type 'menu' or '7' to return to main menu)`,
+            message: `🏥 Report Status\n\nPlease provide your Patient ID:\n\n(Type 'menu' or '8' to return to main menu)`,
             nextStep: "waiting_for_patient_id",
             userData,
           };
@@ -395,6 +396,13 @@ async function processUserMessage(
             userData,
           }
 
+        case "total_doctors":
+          return {
+            message: await handleTotalDoctors(config),
+            nextStep: "waiting_for_menu_action",
+            userData,
+          }
+
         case "return_to_menu":
           return {
             message: returnToMainMenu(config),
@@ -420,7 +428,7 @@ async function processUserMessage(
 
       if (freeTextResponse.shouldEscalate) {
         // Instead of auto-escalating, show AI response and give user a choice
-        const uncertainMessage = `🤔 I'm not completely sure about this answer. Would you like to:\n1. Raise a ticket for our hospital team to reachyou\n2. Get response from AI.\nReply 'menu' or '7' to return to main menu`;
+        const uncertainMessage = `🤔 I'm not completely sure about this answer. Would you like to:\n1. Raise a ticket for our hospital team to reachyou\n2. Get response from AI.\nReply 'menu' or '8' to return to main menu`;
         return {
           message: uncertainMessage,
           nextStep: "waiting_for_clarification_choice",
@@ -466,14 +474,14 @@ async function processUserMessage(
 
         case "doctor_availability":
           return {
-            message: `👨‍⚕️ Doctor Availability\n\nPlease enter the doctor's name you want to check availability for:\n\n(Type 'menu' or '7' to return to main menu)`,
+            message: `👨‍⚕️ Doctor Availability\n\nPlease enter the doctor's name you want to check availability for:\n\n(Type 'menu' or '8' to return to main menu)`,
             nextStep: "waiting_for_doctor_name",
             userData,
           };
 
         case "report_status":
           return {
-            message: `🏥 Report Status\n\nPlease provide your Patient ID:\n\n(Type 'menu' or '7' to return to main menu)`,
+            message: `🏥 Report Status\n\nPlease provide your Patient ID:\n\n(Type 'menu' or '8' to return to main menu)`,
             nextStep: "waiting_for_patient_id",
             userData,
           };
@@ -499,6 +507,13 @@ async function processUserMessage(
         case "total_departments":
           return {
             message: handleTotalDepartments(config),
+            nextStep: "waiting_for_menu_action",
+            userData,
+          }
+
+        case "total_doctors":
+          return {
+            message: await handleTotalDoctors(config),
             nextStep: "waiting_for_menu_action",
             userData,
           }
@@ -619,7 +634,7 @@ async function processUserMessage(
       };
     } else {
       // Invalid choice, show options again
-      const uncertainMessage = `🤔 I'm not completely sure about this answer. Would you like to:\n1. Raise a ticket for our hospital team to reachyou\n2. Get response from AI.\nReply 'menu' or '7' to return to main menu`;
+      const uncertainMessage = `🤔 I'm not completely sure about this answer. Would you like to:\n1. Raise a ticket for our hospital team to reachyou\n2. Get response from AI.\nReply 'menu' or '8' to return to main menu`;
       return {
         message: uncertainMessage,
         nextStep: "waiting_for_clarification_choice",
@@ -639,7 +654,7 @@ async function processUserMessage(
 
     if (freeTextResponse.shouldEscalate) {
       // Instead of auto-escalating, show AI response and give user a choice
-      const uncertainMessage = `🤔 I'm not completely sure about this answer. Would you like to:\n1. Raise a ticket for our hospital team to reachyou\n2. Get response from AI.\nReply 'menu' or '7' to return to main menu`;
+      const uncertainMessage = `🤔 I'm not completely sure about this answer. Would you like to:\n1. Raise a ticket for our hospital team to reachyou\n2. Get response from AI.\nReply 'menu' or '8' to return to main menu`;
       return {
         message: uncertainMessage,
         nextStep: "waiting_for_clarification_choice",

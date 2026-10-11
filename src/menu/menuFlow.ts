@@ -4,6 +4,7 @@ import {
   getPatientReports,
   formatDoctorAvailability,
   formatReportStatus,
+  getAllDoctors,
 } from "../services/googleSheetsService";
 import {
   processUserQuestion,
@@ -62,6 +63,12 @@ const MAIN_MENU_OPTIONS: MenuOption[] = [
   },
   {
     number: 7,
+    key: "total_doctors",
+    label: "Total Doctors List",
+    description: "Get list of all doctors with their timings",
+  },
+  {
+    number: 8,
     key: "return_to_menu",
     label: "Return to Main Menu",
     description: "Go back to the main menu options",
@@ -96,7 +103,7 @@ export function handleVisitingHours(config: ClientConfig): string {
     response += "\n";
   }
 
-  response += "📌 Need more info? Reply 'menu' or '7' to return to main menu.";
+  response += "📌 Need more info? Reply 'menu' or '8' to return to main menu.";
   return response;
 }
 
@@ -104,7 +111,7 @@ export function handleVisitingHours(config: ClientConfig): string {
  * Handle bill/payment info menu option
  */
 export function handleBillingInfo(config: ClientConfig): string {
-  return `💰 Bill & Payment Info\n\n${config.billingSupportMessage}\n\n📌 Need more help? Reply 'menu' or '7' to return to main menu or option 5 to talk to our team.`;
+  return `💰 Bill & Payment Info\n\n${config.billingSupportMessage}\n\n📌 Need more help? Reply 'menu' or '8' to return to main menu or option 5 to talk to our team.`;
 }
 
 /**
@@ -115,7 +122,7 @@ export function handleEscalation(config: ClientConfig, userPhone: string): {
   escalationData: Record<string, unknown>;
 } {
   return {
-    userMessage: `Thank you for reaching out! Our front desk team will respond shortly. Please stand by.\n\nYour ticket ID: ${generateTicketId()}\n\n📌 Reply 'menu' or '7' to return to main menu.`,
+    userMessage: `Thank you for reaching out! Our front desk team will respond shortly. Please stand by.\n\nYour ticket ID: ${generateTicketId()}\n\n📌 Reply 'menu' or '8' to return to main menu.`,
     escalationData: {
       clientId: config.clientId,
       userPhone,
@@ -143,7 +150,7 @@ Please provide the correct doctor name or check:
 2. Call our reception desk
 3. Or try option 5 to speak with front desk
 
-📌 Reply 'menu' or '7' to return to main menu.`;
+📌 Reply 'menu' or '8' to return to main menu.`;
   }
 
   return formatDoctorAvailability(doctor);
@@ -187,9 +194,29 @@ export async function handleFreeTextQuestion(
  */
 export function handleTotalDepartments(config: ClientConfig): string {
   const wards = Object.keys(config.visitingHours);
-  return `🏥 Total Available Departments: ${wards.length}\n\nDepartments: ${wards.map(w => w.toUpperCase()).join(', ')}\n\n📌 Reply 'menu' or '7' to return to main menu.`;
+  return `🏥 Total Available Departments: ${wards.length}\n\nDepartments: ${wards.map(w => w.toUpperCase()).join(', ')}\n\n📌 Reply 'menu' or '8' to return to main menu.`;
 }
 
+
+
+
+/**
+ * Handle total doctors list menu option
+ */
+export async function handleTotalDoctors(config: ClientConfig): Promise<string> {
+  const doctors = await getAllDoctors(config.googleSheets);
+  if (doctors.length === 0) {
+    return `🩺 No doctor data available at the moment.\n\n📌 Reply 'menu' or '8' to return to main menu.`;
+  }
+  let response = `🩺 Total Doctors List (${doctors.length})\n\n`;
+  doctors.forEach((doc, idx) => {
+    const days = doc.opdDays.join(", ");
+    response += `${idx + 1}️⃣ ${doc.name} – ${doc.specialty}\n`;
+    response += `   OPD: ${doc.opdTiming} (${days})\n\n`;
+  });
+  response += `📌 Reply 'menu' or '8' to return to main menu.`;
+  return response;
+}
 
 /**
  * Generate a unique ticket ID for escalations

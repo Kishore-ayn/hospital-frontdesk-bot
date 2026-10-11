@@ -275,7 +275,7 @@ Specialty: ${doctor.specialty}
 
 ⏰ Next Available: ${doctor.nextAvailable}
 
-📌 Reply 'menu' or '7' to return to main menu or option 5 to schedule an appointment.`;
+📌 Reply 'menu' or '8' to return to main menu or option 5 to schedule an appointment.`;
 }
 
 /**
@@ -287,7 +287,7 @@ export function formatReportStatus(reports: ReportStatus[]): string {
 
 Please verify the patient ID or call our lab at the hospital reception.
 
-📌 Reply 'menu' or '7' to return to main menu.`;
+📌 Reply 'menu' or '8' to return to main menu.`;
   }
 
   let message = "📋 Your Report Status:\n\n";
@@ -306,7 +306,7 @@ Please verify the patient ID or call our lab at the hospital reception.
     message += "\n";
   });
 
-  message += "📌 Reply 'menu' or '7' to return to main menu.";
+  message += "📌 Reply 'menu' or '8' to return to main menu.";
   return message;
 }
 
