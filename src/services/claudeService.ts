@@ -253,9 +253,9 @@ export function formatClaudeResponse(
   let formatted = `💭 ${message}`;
 
   if (shouldEscalate) {
-    formatted += "\n\n📞 Options: Reply '5' to talk to front desk or '8' to return to main menu";
+    formatted += "\n\n📞 Options: Reply '5' to talk to front desk or '9' to return to main menu";
   } else {
-    formatted += "\n\n📌 Reply 'menu' or '8' to return to main menu.";
+    formatted += "\n\n📌 Reply 'menu' or '9' to return to main menu.";
   }
 
   return formatted;

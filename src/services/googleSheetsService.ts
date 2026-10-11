@@ -20,10 +20,36 @@ export interface ReportStatus {
   location?: string;
 }
 
+export interface HospitalService {
+  name: string;
+  description?: string;
+}
+
+export interface VisitingHour {
+  startTime: string;
+  endTime: string;
+  daysOpen: string;
+  specialNotes?: string;
+}
+
+export interface Department {
+  name: string;
+  description?: string;
+}
+
+export interface InsuranceCompany {
+  name: string;
+  description?: string;
+}
+
 export interface GoogleSheetsConfig {
   spreadsheetId: string;
   doctorScheduleSheet: string;
   reportStatusSheet: string;
+  hospitalServiceSheet: string;
+  visitingHoursSheet: string;
+  departmentsSheet: string;
+  insuranceCompaniesSheet: string;
 }
 
 /**
@@ -275,7 +301,7 @@ Specialty: ${doctor.specialty}
 
 ⏰ Next Available: ${doctor.nextAvailable}
 
-📌 Reply 'menu' or '8' to return to main menu or option 5 to schedule an appointment.`;
+📌 Reply 'menu' or '9' to return to main menu or option 5 to schedule an appointment.`;
 }
 
 /**
@@ -287,7 +313,7 @@ export function formatReportStatus(reports: ReportStatus[]): string {
 
 Please verify the patient ID or call our lab at the hospital reception.
 
-📌 Reply 'menu' or '8' to return to main menu.`;
+📌 Reply 'menu' or '9' to return to main menu.`;
   }
 
   let message = "📋 Your Report Status:\n\n";
@@ -306,8 +332,171 @@ Please verify the patient ID or call our lab at the hospital reception.
     message += "\n";
   });
 
-  message += "📌 Reply 'menu' or '8' to return to main menu.";
+  message += "📌 Reply 'menu' or '9' to return to main menu.";
   return message;
+}
+
+/**
+ * Get all hospital services from Google Sheets
+ */
+export async function getHospitalServices(config: GoogleSheetsConfig): Promise<HospitalService[]> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.hospitalServiceSheet || 'Hospital Services'));
+    if (!sheet) throw new Error('Hospital services sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+
+    return rows.map(row => ({
+      name: row.get('name') ?? '',
+      description: row.get('description') ?? undefined,
+    }));
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error getting hospital services:', err);
+    } else {
+      console.error('Error getting hospital services:', String(err));
+    }
+    return [];
+  }
+}
+
+/**
+ * Get visiting hours from Google Sheets
+ */
+export async function getVisitingHours(config: GoogleSheetsConfig): Promise<Record<string, VisitingHour>> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.visitingHoursSheet || 'Visiting Hours'));
+    if (!sheet) throw new Error('Visiting hours sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+
+    // Convert rows to visiting hours object
+    const visitingHours: Record<string, VisitingHour> = {};
+    for (const row of rows) {
+      const wardName = row.get('ward') ?? '';
+      if (wardName) {
+        visitingHours[wardName] = {
+          startTime: row.get('startTime') ?? '',
+          endTime: row.get('endTime') ?? '',
+          daysOpen: row.get('daysOpen') ?? '',
+          specialNotes: row.get('specialNotes') ?? undefined
+        };
+      }
+    }
+
+    return visitingHours;
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error getting visiting hours:', err);
+    } else {
+      console.error('Error getting visiting hours:', String(err));
+    }
+    return {};
+  }
+}
+
+/**
+ * Get all departments from Google Sheets
+ */
+export async function getDepartments(config: GoogleSheetsConfig): Promise<Department[]> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.departmentsSheet || 'Departments'));
+    if (!sheet) throw new Error('Departments sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+
+    return rows.map(row => ({
+      name: row.get('name') ?? '',
+      description: row.get('description') ?? undefined,
+    }));
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error getting departments:', err);
+    } else {
+      console.error('Error getting departments:', String(err));
+    }
+    return [];
+  }
+}
+
+/**
+ * Get all insurance companies from Google Sheets
+ */
+export async function getInsuranceCompanies(config: GoogleSheetsConfig): Promise<InsuranceCompany[]> {
+  try {
+    const credentials = await loadCredentials();
+
+    // Create JWT auth client from service account credentials
+    const auth = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const doc = new GoogleSpreadsheet(config.spreadsheetId, auth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByIndex.find(s => s.title === (config.insuranceCompaniesSheet || 'Insurance Companies'));
+    if (!sheet) throw new Error('Insurance companies sheet not found');
+
+    // Load header row to get column names
+    await sheet.loadHeaderRow();
+    const rows = await sheet.getRows();
+
+    return rows.map(row => ({
+      name: row.get('name') ?? '',
+      description: row.get('description') ?? undefined,
+    }));
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('Error getting insurance companies:', err);
+    } else {
+      console.error('Error getting insurance companies:', String(err));
+    }
+    return [];
+  }
 }
 
 function getStatusEmoji(status: string): string {

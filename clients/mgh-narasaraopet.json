@@ -9,34 +9,11 @@
   "googleSheets": {
     "spreadsheetId": "1Or-SeBAXCyQZee-Uz-a82Ol5kFAhHphS1bQVzlhczbw",
     "doctorScheduleSheet": "Doctor Schedule",
-    "reportStatusSheet": "Report Status"
-  },
-  "visitingHours": {
-    "Cardiology": {
-      "startTime": "09:00",
-      "endTime": "17:00",
-      "daysOpen": "Monday to Saturday"
-    },
-    "Nephrology": {
-      "startTime": "09:00",
-      "endTime": "17:00",
-      "daysOpen": "Monday to Saturday"
-    },
-    "Neurology": {
-      "startTime": "09:00",
-      "endTime": "17:00",
-      "daysOpen": "Monday to Saturday"
-    },
-    "Pulmonology": {
-      "startTime": "09:00",
-      "endTime": "17:00",
-      "daysOpen": "Monday to Saturday"
-    },
-    "Anaesthesia & Critical Care": {
-      "startTime": "09:00",
-      "endTime": "17:00",
-      "daysOpen": "Monday to Saturday"
-    }
+    "reportStatusSheet": "Report Status",
+    "hospitalServiceSheet": "Hospital Services",
+    "visitingHoursSheet": "Visiting Hours",
+    "departmentsSheet": "Departments",
+    "insuranceCompaniesSheet": "Insurance Companies"
   },
   "faqContent": "Frequently Asked Questions:\n\n1. What are the visiting hours?\nVisiting hours are 9 AM to 5 PM on weekdays and 9 AM to 1 PM on Saturdays. Different wards have different timings - check the visiting hours section for details.\n\n2. How do I check my lab report?\nYou can check your lab report status through this chat. Please provide your patient ID or registered phone number. Our lab team typically processes reports within 24-48 hours.\n\n3. What documents do I need to bring for admission?\nPlease bring: ID proof (Aadhar/Passport/License), insurance card (if applicable), and any previous medical records or prescriptions.\n\n4. Is there parking available?\nYes, complimentary parking is available for all patients and visitors. Please ask the staff at the entrance for parking directions.\n\n5. Do you provide emergency services?\nYes, we have a 24/7 emergency department. In case of emergencies, please go directly to the emergency entrance or call our emergency hotline.\n\n6. What payment methods do you accept?\nWe accept cash, credit cards, debit cards, and digital payment methods (UPI, Google Pay, Apple Pay). Insurance claims are also processed on site.\n\n7. How can I schedule an appointment?\nYou can schedule an appointment with our doctors during OPD hours. Please ask the front desk staff or call our appointment desk for availability.",
   "billingSupportMessage": "For billing inquiries:\n- Call our billing department: +918XXX-XXXX\n- Hours: 9 AM - 5 PM, Monday to Friday\n- Visit the billing counter on the ground floor\n- Or speak to a representative in the lobby\n\nWe accept all major payment methods and process insurance claims on site.",

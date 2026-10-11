@@ -5,6 +5,14 @@ import {
   formatDoctorAvailability,
   formatReportStatus,
   getAllDoctors,
+  getHospitalServices,
+  HospitalService,
+  getVisitingHours,
+  VisitingHour,
+  getDepartments,
+  Department,
+  getInsuranceCompanies,
+  InsuranceCompany,
 } from "../services/googleSheetsService";
 import {
   processUserQuestion,
@@ -69,6 +77,18 @@ const MAIN_MENU_OPTIONS: MenuOption[] = [
   },
   {
     number: 8,
+    key: "hospital_services",
+    label: "Hospital Services",
+    description: "Get list of all hospital services",
+  },
+  {
+    number: 9,
+    key: "insurance_companies",
+    label: "Insurance Companies",
+    description: "Get list of insurance companies",
+  },
+  {
+    number: 10,
     key: "return_to_menu",
     label: "Return to Main Menu",
     description: "Go back to the main menu options",
@@ -89,21 +109,25 @@ export function generateMainMenu(config: ClientConfig): string {
 /**
  * Handle visiting hours menu option
  */
-export function handleVisitingHours(config: ClientConfig): string {
-  const hours = config.visitingHours;
+export async function handleVisitingHours(config: ClientConfig): Promise<string> {
+  const hours = await getVisitingHours(config.googleSheets) || {};
   let response = "📅 Visiting Hours:\n\n";
 
-  for (const [ward, info] of Object.entries(hours)) {
-    response += `${ward.toUpperCase()}\n`;
-    response += `⏰ ${info.startTime} - ${info.endTime}\n`;
-    response += `📆 ${info.daysOpen}\n`;
-    if (info.specialNotes) {
-      response += `ℹ️ ${info.specialNotes}\n`;
+  if (Object.keys(hours).length === 0) {
+    response += "No visiting hours data available.\n\n";
+  } else {
+    for (const [ward, info] of Object.entries(hours)) {
+      response += `${ward.toUpperCase()}\n`;
+      response += `⏰ ${info.startTime} - ${info.endTime}\n`;
+      response += `📆 ${info.daysOpen}\n`;
+      if (info.specialNotes) {
+        response += `ℹ️ ${info.specialNotes}\n`;
+      }
+      response += "\n";
     }
-    response += "\n";
   }
 
-  response += "📌 Need more info? Reply 'menu' or '8' to return to main menu.";
+  response += "📌 Need more info? Reply 'menu' or '9' to return to main menu.";
   return response;
 }
 
@@ -111,7 +135,7 @@ export function handleVisitingHours(config: ClientConfig): string {
  * Handle bill/payment info menu option
  */
 export function handleBillingInfo(config: ClientConfig): string {
-  return `💰 Bill & Payment Info\n\n${config.billingSupportMessage}\n\n📌 Need more help? Reply 'menu' or '8' to return to main menu or option 5 to talk to our team.`;
+  return `💰 Bill & Payment Info\n\n${config.billingSupportMessage}\n\n📌 Need more help? Reply 'menu' or '9' to return to main menu or option 5 to talk to our team.`;
 }
 
 /**
@@ -122,7 +146,7 @@ export function handleEscalation(config: ClientConfig, userPhone: string): {
   escalationData: Record<string, unknown>;
 } {
   return {
-    userMessage: `Thank you for reaching out! Our front desk team will respond shortly. Please stand by.\n\nYour ticket ID: ${generateTicketId()}\n\n📌 Reply 'menu' or '8' to return to main menu.`,
+    userMessage: `Thank you for reaching out! Our front desk team will respond shortly. Please stand by.\n\nYour ticket ID: ${generateTicketId()}\n\n📌 Reply 'menu' or '9' to return to main menu.`,
     escalationData: {
       clientId: config.clientId,
       userPhone,
@@ -150,7 +174,7 @@ Please provide the correct doctor name or check:
 2. Call our reception desk
 3. Or try option 5 to speak with front desk
 
-📌 Reply 'menu' or '8' to return to main menu.`;
+📌 Reply 'menu' or '9' to return to main menu.`;
   }
 
   return formatDoctorAvailability(doctor);
@@ -192,11 +216,25 @@ export async function handleFreeTextQuestion(
 /**
  * Handle total departments menu option
  */
-export function handleTotalDepartments(config: ClientConfig): string {
-  const wards = Object.keys(config.visitingHours);
-  return `🏥 Total Available Departments: ${wards.length}\n\nDepartments: ${wards.map(w => w.toUpperCase()).join(', ')}\n\n📌 Reply 'menu' or '8' to return to main menu.`;
+export async function handleTotalDepartments(config: ClientConfig): Promise<string> {
+  const departments = await getDepartments(config.googleSheets);
+  if (departments.length === 0) {
+    return `🏥 No department data available.\n\n📌 Reply 'menu' or '9' to return to main menu.`;
+  }
+  const departmentNames = departments.map(dept => dept.name);
+  return `🏥 Total Available Departments: ${departmentNames.length}\n\nDepartments: ${departmentNames.map(w => w.toUpperCase()).join(', ')}\n\n📌 Reply 'menu' or '9' to return to main menu.`;
 }
-
+/**
+ * Handle insurance companies menu option
+ */
+export async function handleInsuranceCompanies(config: ClientConfig): Promise<string> {
+  const companies = await getInsuranceCompanies(config.googleSheets);
+  if (companies.length === 0) {
+    return `🛡️ No insurance company data available.\n\n📌 Reply 'menu' or '10' to return to main menu.`;
+  }
+  const companyNames = companies.map(comp => comp.name);
+  return `🛡️ Total Insurance Companies: ${companyNames.length}\n\nCompanies: ${companyNames.map(w => w.toUpperCase()).join(', ')}\n\n📌 Reply 'menu' or '10' to return to main menu.`;
+}
 
 
 
@@ -206,7 +244,7 @@ export function handleTotalDepartments(config: ClientConfig): string {
 export async function handleTotalDoctors(config: ClientConfig): Promise<string> {
   const doctors = await getAllDoctors(config.googleSheets);
   if (doctors.length === 0) {
-    return `🩺 No doctor data available at the moment.\n\n📌 Reply 'menu' or '8' to return to main menu.`;
+    return `🩺 No doctor data available at the moment.\n\n📌 Reply 'menu' or '9' to return to main menu.`;
   }
   let response = `🩺 Total Doctors List (${doctors.length})\n\n`;
   doctors.forEach((doc, idx) => {
@@ -214,7 +252,27 @@ export async function handleTotalDoctors(config: ClientConfig): Promise<string> 
     response += `${idx + 1}️⃣ ${doc.name} – ${doc.specialty}\n`;
     response += `   OPD: ${doc.opdTiming} (${days})\n\n`;
   });
-  response += `📌 Reply 'menu' or '8' to return to main menu.`;
+  response += `📌 Reply 'menu' or '9' to return to main menu.`;
+  return response;
+}
+
+/**
+ * Handle hospital services menu option
+ */
+export async function handleHospitalServices(config: ClientConfig): Promise<string> {
+  const services = await getHospitalServices(config.googleSheets);
+  if (services.length === 0) {
+    return `🏥 No hospital services data available.\n\n📌 Reply 'menu' or '9' to return to main menu.`;
+  }
+  let response = `🏥 Hospital Services\n\n`;
+  services.forEach((service: HospitalService, idx: number) => {
+    response += `${idx + 1}. ${service.name}\n`;
+    if (service.description) {
+      response += `   ${service.description}\n`;
+    }
+    response += "\n";
+  });
+  response += `📌 Reply 'menu' or '9' to return to main menu.`;
   return response;
 }
 

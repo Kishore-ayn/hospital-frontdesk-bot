@@ -13,8 +13,12 @@ export interface ClientConfig {
     spreadsheetId: string;
     doctorScheduleSheet: string;
     reportStatusSheet: string;
+    hospitalServiceSheet: string;
+    visitingHoursSheet: string;
+    departmentsSheet: string;
+    insuranceCompaniesSheet: string;
   };
-  visitingHours: Record<
+  visitingHours?: Record<
     string,
     {
       startTime: string;
@@ -133,7 +137,6 @@ export function validateConfig(config: unknown): config is ClientConfig {
     "whatsappNumber",
     "aisensy",
     "googleSheets",
-    "visitingHours",
     "faqContent",
     "billingSupportMessage",
     "escalationChannel",
