@@ -8,3 +8,9 @@ dist/
 *.swo
 db/*.db
 db/*.sqlite
+credentials/
+OpenWA/
+.claude/
+src/**/*.backup
+src/**/*.bak
+db/
